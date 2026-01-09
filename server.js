@@ -43,8 +43,10 @@ async function testRawDataModel() {
     const metadata = await rawData.getTableMetadata(tableName);
     console.log('✅ Table metadata fields found ::', metadata.length)
     const data = await rawData.getPaginatedData(tableName,2,10);
-    console.log('✅ Table data records found ::', data)
+    // console.log('✅ Table data records found ::', data)
     // console.log('✅ Table metadata:', JSON.stringify(metadata, null, 2));
+    const total_by_client = await rawData.getTotalCount(tableName);
+    console.log('✅ Table data records found ::', total_by_client)
     
     // Add more tests here as you implement other methods
     

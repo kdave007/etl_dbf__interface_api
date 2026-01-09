@@ -59,10 +59,16 @@ class RawDataModel {
   /**
    * Get total record count for a table
    * @param {string} tableName - Name of the table
-   * @param {Array} clients - clients list
    */
-  async getTotalCount(tableName, clients = []) {
-    // TODO: Implement
+  async getTotalCount(tableName) {
+    const query = `
+      SELECT _client_id, count(_client_id)  as total
+      FROM ${tableName}
+      GROUP BY _client_id;
+    `;
+    
+    const result = await this.db.query(query);
+    return result.rows;
   }
 
   // ==================== FILTERING ====================
