@@ -1,0 +1,33 @@
+{
+    "tables":{
+        "CANOTA":{
+            "date":true,
+            "date_field":"NOTA_FECHA"
+        },
+        "CUNOTA":{
+            "date":false
+        },
+        "VENTA":{
+            "date":true,
+            "date_field":"F_EMISION"
+        },
+        "PARTVTA":{
+            "date":false
+        },
+        "XCORTE":{
+            "date":true,
+            "date_field":"FECHA"
+        },
+        "COBRANZA":{
+            "date":true,
+            "date_field":"FECHA"
+        },
+        "FLUJORES":{
+            "date":true,
+            "date_field":"FECHA"
+        },
+        "CLIENTE":{
+            "date":false
+        }
+    }
+}

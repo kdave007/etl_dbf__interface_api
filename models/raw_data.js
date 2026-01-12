@@ -1,4 +1,5 @@
 const db = require('../db/Database');
+const tableSchemas = require('../utils/tables_schemas.json');
 
 // models/RawDataModel.js
 class RawDataModel {
@@ -44,17 +45,64 @@ class RawDataModel {
    * @param {number} page - Page number (1-based)
    * @param {number} pageSize - Records per page
    */
-  async getPaginatedData(tableName, page = 1, pageSize = 10) {
+ async getPaginatedData(tableName, dateRange, city, page = 1, pageSize = 10) {
+  const offset = (page - 1) * pageSize;
+  
+  let whereClauses = [];
+  let params = [];
+  let paramIndex = 1;
+  
+  const tableConfig = tableSchemas.tables[tableName.toUpperCase()];
+  
+  if (dateRange && dateRange.start && dateRange.end && tableConfig?.date) {
+    const dateField = tableConfig.date_field ;
+    whereClauses.push(`${dateField} BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
+    params.push(dateRange.start, dateRange.end);
+    paramIndex += 2;
+  }
+  
+  if (city) {
+    whereClauses.push(`PLAZA = $${paramIndex}`);
+    params.push(city);
+    paramIndex += 1;
+  }
+  
+  const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+  
+  const query = `
+    SELECT * FROM ${tableName}
+    ${whereClause}
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
+  `;
+  
+  params.push(pageSize, offset);
+  
+  const result = await this.db.query(query, params);
+  return result.rows;
+}
+
+  async getFilteredPaginated(field, value, tableName, page = 1, pageSize = 10) {
     const offset = (page - 1) * pageSize;
-    
+  
+    // Get table metadata to validate field exists
+    const metadata = await this.getTableMetadata(tableName);
+    const allowedFields = metadata.map(col => col.column_name);
+  
+    if (!allowedFields.includes(field)) {
+      throw new Error(`Invalid field: ${field}. Field does not exist in table ${tableName}`);
+    }
+  
+    // Use parameterized query for the value to prevent SQL injection
     const query = `
       SELECT * FROM ${tableName}
-      LIMIT $1 OFFSET $2;
+      WHERE ${field} = $1
+      LIMIT $2 OFFSET $3;
     `;
-    
-    const result = await this.db.query(query, [pageSize, offset]);
+  
+    const result = await this.db.query(query, [value, pageSize, offset]);
     return result.rows;
   }
+
 
   /**
    * Get total record count for a table
