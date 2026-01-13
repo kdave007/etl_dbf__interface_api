@@ -9,18 +9,13 @@ class RawDataModel {
 
   // ==================== BASIC CRUD ====================
 
-  /**
-   * Get list of all tables in the database
-   */
-  async getAllTables() {
-    // TODO: Implement
-  }
 
   /**
    * Get metadata/columns for a specific table
    * @param {string} tableName - Name of the table
    */
   async getTableMetadata(tableName) {
+    tableName = tableName.toLowerCase();
     const query = `
       SELECT 
         column_name,
@@ -29,9 +24,17 @@ class RawDataModel {
         is_nullable,
         column_default
       FROM information_schema.columns
-      WHERE table_name = $1
+      WHERE table_name = $1 AND column_name NOT LIKE '~_%' ESCAPE '~'
       ORDER BY ordinal_position;
     `;
+    // const query = `
+    //   SELECT 
+    //     column_name
+       
+    //   FROM information_schema.columns
+    //   WHERE table_name = $1
+    //   ORDER BY ordinal_position;
+    // `;
     
     const result = await this.db.query(query, [tableName]);
     return result.rows;
@@ -45,48 +48,63 @@ class RawDataModel {
    * @param {number} page - Page number (1-based)
    * @param {number} pageSize - Records per page
    */
- async getPaginatedData(tableName, dateRange, city, page = 1, pageSize = 10) {
+  async getPaginatedData(tableName, dateRange, city, page = 1, pageSize = 10) {
   const offset = (page - 1) * pageSize;
+  city = city.toUpperCase();
   
-  let whereClauses = [];
-  let params = [];
-  let paramIndex = 1;
+  if (!city) {
+    throw new Error('City parameter is required');
+  }
+  
+  const metadata = await this.getTableMetadata(tableName);
+  const columns = metadata.map(col => col.column_name).join(', ');
   
   const tableConfig = tableSchemas.tables[tableName.toUpperCase()];
+  let query;
+  let params;
   
+  // WITH date range filter
   if (dateRange && dateRange.start && dateRange.end && tableConfig?.date) {
-    const dateField = tableConfig.date_field ;
-    whereClauses.push(`${dateField} BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
-    params.push(dateRange.start, dateRange.end);
-    paramIndex += 2;
+    const dateField = tableConfig.date_field;
+    query = `
+      SELECT ${columns} FROM ${tableName}
+      WHERE ${dateField} BETWEEN $1 AND $2 AND PLAZA = $3
+      LIMIT $4 OFFSET $5;
+    `;
+    params = [dateRange.start, dateRange.end, city, pageSize, offset];
+  } 
+  // WITHOUT date range - get most recent records if table has date field
+  else if (tableConfig?.date) {
+    const dateField = tableConfig.date_field;
+    query = `
+      SELECT ${columns} FROM ${tableName}
+      WHERE PLAZA = $1
+      ORDER BY ${dateField} DESC
+      LIMIT $2 OFFSET $3;
+    `;
+    params = [city, pageSize, offset];
+  } 
+  // No date field at all (like CLIENTE table)
+  else {
+    query = `
+      SELECT ${columns} FROM ${tableName}
+      WHERE PLAZA = $1
+      LIMIT $2 OFFSET $3;
+    `;
+    params = [city, pageSize, offset];
   }
-  
-  if (city) {
-    whereClauses.push(`PLAZA = $${paramIndex}`);
-    params.push(city);
-    paramIndex += 1;
-  }
-  
-  const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-  
-  const query = `
-    SELECT * FROM ${tableName}
-    ${whereClause}
-    LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
-  `;
-  
-  params.push(pageSize, offset);
   
   const result = await this.db.query(query, params);
   return result.rows;
 }
 
-  async getFilteredPaginated(field, value, tableName, page = 1, pageSize = 10) {
+  async getFilteredPaginated(field, value, tableName, page = 1, pageSize = 2) {
     const offset = (page - 1) * pageSize;
   
     // Get table metadata to validate field exists
     const metadata = await this.getTableMetadata(tableName);
     const allowedFields = metadata.map(col => col.column_name);
+    const columns = allowedFields.join(', ');
   
     if (!allowedFields.includes(field)) {
       throw new Error(`Invalid field: ${field}. Field does not exist in table ${tableName}`);
@@ -94,7 +112,7 @@ class RawDataModel {
   
     // Use parameterized query for the value to prevent SQL injection
     const query = `
-      SELECT * FROM ${tableName}
+      SELECT ${columns} FROM ${tableName}
       WHERE ${field} = $1
       LIMIT $2 OFFSET $3;
     `;

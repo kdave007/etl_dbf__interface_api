@@ -49,9 +49,9 @@ async function testRawDataModel() {
     const data = await rawData.getPaginatedData(tableName, dateRange, city, 1, 50);
     console.log('✅ Paginated data records found ::', data.length);
     
-    // Test without filters
-    const dataNoFilter = await rawData.getPaginatedData(tableName, null, null, 1, 10);
-    console.log('✅ Paginated data (no filters) records found ::', dataNoFilter.length);
+    // Test without date filter (but city is required)
+    const dataNoFilter = await rawData.getPaginatedData(tableName, null, city, 1, 10);
+    console.log('✅ Paginated data (no date filter) records found ::', dataNoFilter.length);
     
     // Test getTotalCount
     const total_by_client = await rawData.getTotalCount(tableName);
