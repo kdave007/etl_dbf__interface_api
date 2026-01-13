@@ -61,7 +61,9 @@ class RawDataModel {
   
   const tableConfig = tableSchemas.tables[tableName.toUpperCase()];
   let query;
+  let countQuery;
   let params;
+  let countParams;
   
   // WITH date range filter
   if (dateRange && dateRange.start && dateRange.end && tableConfig?.date) {
@@ -72,6 +74,12 @@ class RawDataModel {
       LIMIT $4 OFFSET $5;
     `;
     params = [dateRange.start, dateRange.end, city, pageSize, offset];
+    
+    countQuery = `
+      SELECT COUNT(*) as total FROM ${tableName}
+      WHERE ${dateField} BETWEEN $1 AND $2 AND PLAZA = $3;
+    `;
+    countParams = [dateRange.start, dateRange.end, city];
   } 
   // WITHOUT date range - get most recent records if table has date field
   else if (tableConfig?.date) {
@@ -83,6 +91,12 @@ class RawDataModel {
       LIMIT $2 OFFSET $3;
     `;
     params = [city, pageSize, offset];
+    
+    countQuery = `
+      SELECT COUNT(*) as total FROM ${tableName}
+      WHERE PLAZA = $1;
+    `;
+    countParams = [city];
   } 
   // No date field at all (like CLIENTE table)
   else {
@@ -92,10 +106,23 @@ class RawDataModel {
       LIMIT $2 OFFSET $3;
     `;
     params = [city, pageSize, offset];
+    
+    countQuery = `
+      SELECT COUNT(*) as total FROM ${tableName}
+      WHERE PLAZA = $1;
+    `;
+    countParams = [city];
   }
   
-  const result = await this.db.query(query, params);
-  return result.rows;
+  const [result, countResult] = await Promise.all([
+    this.db.query(query, params),
+    this.db.query(countQuery, countParams)
+  ]);
+  
+  return {
+    rows: result.rows,
+    totalCount: parseInt(countResult.rows[0].total)
+  };
 }
 
   async getFilteredPaginated(field, value, tableName, page = 1, pageSize = 2) {

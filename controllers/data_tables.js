@@ -29,19 +29,17 @@ class DataTablesController{
         const { page = 1, pageSize = 10 } = paginationContext;
         
         const metadata = await this.rawDataModel.getTableMetadata(tableName);
-        const data = await this.rawDataModel.getPaginatedData(tableName, dateRange, city, page, pageSize);
+        const result = await this.rawDataModel.getPaginatedData(tableName, dateRange, city, page, pageSize);
         const tableConfig = tableSchemas.tables[tableName.toUpperCase()] || { date: false };
-
-        console.log('META ',metadata)
 
           return {
            metadata,
-           data,
+           data: result.rows,
            tableConfig,
            pagination: {
                page,
                pageSize,
-               totalRecords: data.length
+               totalRecords: result.totalCount
            }
        };
     }
