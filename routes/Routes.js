@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/Database');
 const DataTablesController = require('../controllers/data_tables');
+const ClientsStatusController = require('../controllers/clients_status');
 
 class Routes {
   constructor() {
     this.router = router;
     this.dataTablesController = new DataTablesController();
+    this.clientsStatusController = new ClientsStatusController();
     this.initializeRoutes();
   }
 
@@ -14,6 +16,7 @@ class Routes {
     this.router.post('/default_data', this.defaultData.bind(this));
     this.router.post('/paginated_data', this.getPaginatedData.bind(this));
     this.router.post('/filtered_data', this.getFilteredData.bind(this));
+    this.router.get('/clients_status', this.getClientsStatus.bind(this));
   }
 
   async defaultData(req, res) {
@@ -131,6 +134,28 @@ class Routes {
       });
     } catch (error) {
       console.error('Error in filtered_data endpoint:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  }
+
+  async getClientsStatus(req, res) {
+    try {
+      console.log('📥 Clients status request received');
+      
+      const result = await this.clientsStatusController.getClientsStatus();
+      
+      console.log('📤 Clients status response:', {
+        success: result.success,
+        hasData: !!result.data
+      });
+      
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error in clients_status endpoint:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',

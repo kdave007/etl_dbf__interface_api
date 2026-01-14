@@ -8,8 +8,6 @@ class RawDataModel {
   }
 
   // ==================== BASIC CRUD ====================
-
-
   /**
    * Get metadata/columns for a specific table
    * @param {string} tableName - Name of the table
