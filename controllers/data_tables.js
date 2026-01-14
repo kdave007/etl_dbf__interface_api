@@ -8,19 +8,29 @@ class DataTablesController{
         this.rawDataModel = new RawDataModel();
     }
 
-    async getFilteredData(tableName, filterField, fieldValue, paginationContext = {}) {
+    async getFilteredData(tableName, filterField, fieldValue, dateRange = null, city = null, paginationContext = {}) {
        const { page = 1, pageSize = 10 } = paginationContext;
        
        const metadata = await this.rawDataModel.getTableMetadata(tableName);
-       const data = await this.rawDataModel.getFilteredPaginated(filterField, fieldValue, tableName, page, pageSize);
+       const result = await this.rawDataModel.getFilteredPaginated(
+           filterField, 
+           fieldValue, 
+           tableName, 
+           dateRange, 
+           city, 
+           page, 
+           pageSize
+       );
+       const tableConfig = tableSchemas.tables[tableName.toUpperCase()] || { date: false };
        
        return {
            metadata,
-           data,
+           data: result.rows,
+           tableConfig,
            pagination: {
                page,
                pageSize,
-               totalRecords: data.length
+               totalRecords: result.totalCount
            }
        };
     }

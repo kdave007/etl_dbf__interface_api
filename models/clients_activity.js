@@ -7,12 +7,10 @@ class ClientsActivity{
 
       async getLastConnect(){
         try {
-          await this.db.query("SET timezone = 'America/Mexico_City'");
-          
           const query = `
             SELECT 
               client_id,
-              last_seen AT TIME ZONE 'UTC' AT TIME ZONE 'America/Mexico_City' as last_seen
+              to_char(last_seen AT TIME ZONE 'America/Mexico_City', 'YYYY-MM-DD HH24:MI:SS') as last_seen
             FROM client_activity
             ORDER BY last_seen DESC
             LIMIT 1000;

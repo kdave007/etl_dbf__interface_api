@@ -85,12 +85,14 @@ class Routes {
 
   async getFilteredData(req, res) {
     try {
-      const { tableName, searchField, searchText, paginationContext } = req.body;
+      const { tableName, searchField, searchText, dateRange, city, paginationContext } = req.body;
       
       console.log('📥 Filtered request received:', {
         tableName,
         searchField,
         searchText,
+        dateRange,
+        city,
         paginationContext
       });
       
@@ -101,24 +103,38 @@ class Routes {
         });
       }
       
-      if (!searchField) {
+      // Check if at least one filter is provided
+      const hasSearchFilter = searchField && (searchText !== undefined && searchText !== null);
+      const hasDateFilter = dateRange && dateRange.start && dateRange.end;
+      
+      if (!hasSearchFilter && !hasDateFilter) {
         return res.status(400).json({
           success: false,
-          message: 'searchField is required'
+          message: 'At least one filter is required: (searchField + searchText) or dateRange'
         });
       }
       
-      if (searchText === undefined || searchText === null) {
+      // If search filter is provided, validate both field and text
+      if (searchField && (searchText === undefined || searchText === null)) {
         return res.status(400).json({
           success: false,
-          message: 'searchText is required'
+          message: 'searchText is required when searchField is provided'
+        });
+      }
+      
+      if (searchText && !searchField) {
+        return res.status(400).json({
+          success: false,
+          message: 'searchField is required when searchText is provided'
         });
       }
       
       const result = await this.dataTablesController.getFilteredData(
         tableName,
         searchField,
-        searchText, 
+        searchText,
+        dateRange,
+        city,
         paginationContext
       );
       

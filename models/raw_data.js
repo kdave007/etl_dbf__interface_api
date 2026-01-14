@@ -123,27 +123,80 @@ class RawDataModel {
   };
 }
 
-  async getFilteredPaginated(field, value, tableName, page = 1, pageSize = 2) {
+  async getFilteredPaginated(field, value, tableName, dateRange = null, city = null, page = 1, pageSize = 10) {
     const offset = (page - 1) * pageSize;
   
     // Get table metadata to validate field exists
     const metadata = await this.getTableMetadata(tableName);
     const allowedFields = metadata.map(col => col.column_name);
     const columns = allowedFields.join(', ');
+    const tableConfig = tableSchemas.tables[tableName.toUpperCase()];
   
-    if (!allowedFields.includes(field)) {
+    // Validate field if provided
+    if (field && !allowedFields.includes(field)) {
       throw new Error(`Invalid field: ${field}. Field does not exist in table ${tableName}`);
     }
   
-    // Use parameterized query for the value to prevent SQL injection
+    // Build WHERE clauses dynamically
+    let whereClauses = [];
+    let params = [];
+    let paramIndex = 1;
+    
+    // Add search filter if provided
+    if (field && value !== undefined && value !== null) {
+      whereClauses.push(`${field} = $${paramIndex}`);
+      params.push(value);
+      paramIndex++;
+    }
+    
+    // Add date range filter if provided
+    if (dateRange && dateRange.start && dateRange.end && tableConfig?.date) {
+      const dateField = tableConfig.date_field;
+      whereClauses.push(`${dateField} BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
+      params.push(dateRange.start, dateRange.end);
+      paramIndex += 2;
+    }
+    
+    // Add city filter if provided
+    if (city) {
+      whereClauses.push(`PLAZA = $${paramIndex}`);
+      params.push(city.toUpperCase());
+      paramIndex++;
+    }
+    
+    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+    
+    // Build ORDER BY clause
+    let orderByClause = '';
+    if (tableConfig?.date) {
+      orderByClause = `ORDER BY ${tableConfig.date_field} DESC`;
+    }
+    
+    // Count query (save params before adding LIMIT/OFFSET)
+    const countQuery = `
+      SELECT COUNT(*) as total FROM ${tableName}
+      ${whereClause};
+    `;
+    const countParams = [...params];
+    
+    // Data query
     const query = `
       SELECT ${columns} FROM ${tableName}
-      WHERE ${field} = $1
-      LIMIT $2 OFFSET $3;
+      ${whereClause}
+      ${orderByClause}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
     `;
-  
-    const result = await this.db.query(query, [value, pageSize, offset]);
-    return result.rows;
+    params.push(pageSize, offset);
+    
+    const [result, countResult] = await Promise.all([
+      this.db.query(query, params),
+      this.db.query(countQuery, countParams)
+    ]);
+    
+    return {
+      rows: result.rows,
+      totalCount: parseInt(countResult.rows[0].total)
+    };
   }
 
 
