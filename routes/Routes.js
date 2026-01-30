@@ -3,12 +3,14 @@ const router = express.Router();
 const db = require('../db/Database');
 const DataTablesController = require('../controllers/data_tables');
 const ClientsStatusController = require('../controllers/clients_status');
+const ClientsSettings = require('../models/client_settings');
 
 class Routes {
   constructor() {
     this.router = router;
     this.dataTablesController = new DataTablesController();
     this.clientsStatusController = new ClientsStatusController();
+    this.clientsSettings = new ClientsSettings();
     this.initializeRoutes();
   }
 
@@ -17,6 +19,7 @@ class Routes {
     this.router.post('/paginated_data', this.getPaginatedData.bind(this));
     this.router.post('/filtered_data', this.getFilteredData.bind(this));
     this.router.get('/clients_status', this.getClientsStatus.bind(this));
+    this.router.post('/client_settings', this.clientSettings.bind(this));
   }
 
   async defaultData(req, res) {
@@ -172,6 +175,72 @@ class Routes {
       res.status(200).json(result);
     } catch (error) {
       console.error('Error in clients_status endpoint:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  }
+
+  async clientSettings(req, res) {
+    try {
+      const { command, client_id, settings } = req.body;
+      
+      console.log('📥 Client settings request received:', {
+        command,
+        client_id,
+        settingsCount: settings?.length
+      });
+      
+      if (!command) {
+        return res.status(400).json({
+          success: false,
+          message: 'command is required (get or update)'
+        });
+      }
+      
+      if (!client_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'client_id is required'
+        });
+      }
+      
+      let result;
+      
+      if (command === 'get') {
+        result = await this.clientsSettings.getbyId(client_id);
+        
+        console.log('📤 Client settings response:', {
+          success: result.success,
+          totalRecords: result.totalRecords
+        });
+      } else if (command === 'update') {
+        if (!settings || !Array.isArray(settings) || settings.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'settings array is required for update command (e.g., [{key: "STOP_FLAG", value: "0"}])'
+          });
+        }
+        
+        result = await this.clientsSettings.updateById(client_id, settings);
+        
+        console.log('📤 Update client settings response:', {
+          success: result.success,
+          message: result.message,
+          totalUpdated: result.data?.totalUpdated
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid command. Use "get" or "update"'
+        });
+      }
+      
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error in client_settings endpoint:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
