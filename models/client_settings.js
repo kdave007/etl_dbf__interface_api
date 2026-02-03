@@ -8,12 +8,12 @@ class ClientsSettings{
       async getbyId(client_id){
         try {
           const query = `
-            SELECT * FROM public.spot_settings
+            SELECT key, value FROM public.spot_settings
             WHERE client_id = $1
             ORDER BY client_id ASC, key ASC 
           `;
           
-          const result = await this.db.query(query, client_id);
+          const result = await this.db.query(query, [client_id]);
           console.log('Client settings rows:', result.rows.length);
 
           if (result.rows.length === 0) {
@@ -26,6 +26,7 @@ class ClientsSettings{
           
           return {
             success: true,
+            client_id: client_id,
             data: result.rows,
             totalRecords: result.rows.length
           };

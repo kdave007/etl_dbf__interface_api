@@ -4,6 +4,7 @@ const db = require('../db/Database');
 const DataTablesController = require('../controllers/data_tables');
 const ClientsStatusController = require('../controllers/clients_status');
 const ClientsSettings = require('../models/client_settings');
+const ClientsList = require('../models/clients_list');
 
 class Routes {
   constructor() {
@@ -11,6 +12,7 @@ class Routes {
     this.dataTablesController = new DataTablesController();
     this.clientsStatusController = new ClientsStatusController();
     this.clientsSettings = new ClientsSettings();
+    this.clientsList = new ClientsList();
     this.initializeRoutes();
   }
 
@@ -20,6 +22,7 @@ class Routes {
     this.router.post('/filtered_data', this.getFilteredData.bind(this));
     this.router.get('/clients_status', this.getClientsStatus.bind(this));
     this.router.post('/client_settings', this.clientSettings.bind(this));
+    this.router.post('/clients_by_plaza', this.clients_by_plaza.bind(this));
   }
 
   async defaultData(req, res) {
@@ -246,6 +249,32 @@ class Routes {
         message: 'Internal server error',
         error: error.message
       });
+    }
+  }
+
+  async clients_by_plaza(req, res) {
+    try {
+      const { city } = req.body;
+
+      console.log(' Clients by plaza request received:', {
+        city
+      });
+      
+      const result = await this.clientsList.get_by_city(city);
+      console.log('📤 Clients by plaza response:', {
+        success: result.success,
+        totalRecords: result.totalRecords
+      });
+      res.status(200).json(result);  
+
+
+    } catch (error) {
+      console.error('Error in clients_by_plaza endpoint:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      }); 
     }
   }
 
