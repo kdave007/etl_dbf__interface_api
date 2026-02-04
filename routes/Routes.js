@@ -188,87 +188,88 @@ class Routes {
 
   async clientSettings(req, res) {
     try {
-      const { command, client_id, client_ids, settings } = req.body;
+      const { command, client_ids, settings } = req.body;
+
       
       console.log('📥 Client settings request received:', {
         command,
-        client_id,
+        client_ids,
         client_ids_count: client_ids?.length,
+        // settings,
         settingsCount: settings?.length
       });
       
       if (!command) {
         return res.status(400).json({
           success: false,
-          message: 'command is required (get, update, or bulk_update)'
+          message: 'command is required (get or update)'
+        });
+      }
+
+      if (!client_ids || !Array.isArray(client_ids) || client_ids.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'client_ids array is required'
         });
       }
       
       let result;
       
       if (command === 'get') {
-        if (!client_id) {
+        if (client_ids.length === 1) {
+          result = await this.clientsSettings.getbyId(client_ids[0]);
+          
+          console.log('📤 Client settings response:', {
+            success: result.success,
+            totalRecords: result.totalRecords
+          });
+        } else {
           return res.status(400).json({
             success: false,
-            message: 'client_id is required for get command'
+            message: 'get command only supports single client (client_ids array with one element)'
           });
         }
-
-        result = await this.clientsSettings.getbyId(client_id);
-        
-        console.log('📤 Client settings response:', {
-          success: result.success,
-          totalRecords: result.totalRecords
-        });
-      } else if (command === 'update') {
-        if (!client_id) {
-          return res.status(400).json({
-            success: false,
-            message: 'client_id is required for update command'
-          });
-        }
-
+      } else if (command === 'update' || command === 'bulk_update') {
         if (!settings || !Array.isArray(settings) || settings.length === 0) {
           return res.status(400).json({
             success: false,
             message: 'settings array is required for update command (e.g., [{key: "STOP_FLAG", value: "0"}])'
           });
         }
-        
-        result = await this.clientsSettings.updateById(client_id, settings);
-        
-        console.log('📤 Update client settings response:', {
-          success: result.success,
-          message: result.message,
-          totalUpdated: result.data?.totalUpdated
-        });
-      } else if (command === 'bulk_update') {
-        if (!client_ids || !Array.isArray(client_ids) || client_ids.length === 0) {
-          return res.status(400).json({
-            success: false,
-            message: 'client_ids array is required for bulk_update command'
-          });
-        }
 
-        if (!settings || !Array.isArray(settings) || settings.length === 0) {
-          return res.status(400).json({
-            success: false,
-            message: 'settings array is required for bulk_update command (e.g., [{key: "STOP_FLAG", value: "0"}])'
+        if (client_ids.length === 1) {
+          result = await this.clientsSettings.updateById(client_ids[0], settings);
+          
+          console.log('📤 Update client settings response:', {
+            success: result.success,
+            message: result.message,
+            totalUpdated: result.data?.totalUpdated
+          });
+        } else {
+          const filteredSettings = settings.filter(setting => setting.key !== 'DB_NAME');
+          
+          if (filteredSettings.length === 0) {
+            return res.status(400).json({
+              success: false,
+              message: 'No valid settings to update. DB_NAME is ignored in bulk updates.'
+            });
+          }
+
+          console.log(`🔍 Bulk update: Filtered out DB_NAME. Processing ${filteredSettings.length} setting(s)`);
+          
+          result = await this.clientsSettings.updateBulk(client_ids, filteredSettings);
+          
+          console.log('📤 Bulk update client settings response:', {
+            success: result.success,
+            message: result.message,
+            totalUpdated: result.data?.totalUpdated,
+            clientsProcessed: result.data?.clientsProcessed
           });
         }
-        
-        result = await this.clientsSettings.updateBulk(client_ids, settings);
-        
-        console.log('📤 Bulk update client settings response:', {
-          success: result.success,
-          message: result.message,
-          totalUpdated: result.data?.totalUpdated,
-          clientsProcessed: result.data?.clientsProcessed
-        });
       } else {
         return res.status(400).json({
           success: false,
-          message: 'Invalid command. Use "get", "update", or "bulk_update"'
+          message: 'Invalid command. Use "get" or "update"'
         });
       }
       
