@@ -21,6 +21,7 @@ class Routes {
     this.router.post('/paginated_data', this.getPaginatedData.bind(this));
     this.router.post('/filtered_data', this.getFilteredData.bind(this));
     this.router.get('/clients_status', this.getClientsStatus.bind(this));
+    this.router.post('/clients_status_by_plaza', this.getClientsStatusByPlaza.bind(this));
     this.router.post('/client_settings', this.clientSettings.bind(this));
     this.router.post('/clients_by_plaza', this.clients_by_plaza.bind(this));
   }
@@ -178,6 +179,38 @@ class Routes {
       res.status(200).json(result);
     } catch (error) {
       console.error('Error in clients_status endpoint:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  }
+
+  async getClientsStatusByPlaza(req, res) {
+    try {
+      const { city } = req.body;
+
+      console.log('📥 Clients status by plaza request received:', { city });
+
+      if (!city || city.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'city parameter is required'
+        });
+      }
+      
+      const result = await this.clientsStatusController.getClientsStatusByPlaza(city);
+      
+      console.log('📤 Clients status by city response:', {
+        success: result.success,
+        city: result.city,
+        totalRecords: result.totalRecords
+      });
+      
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error in clients_status_by_plaza endpoint:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
